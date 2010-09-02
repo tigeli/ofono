@@ -1267,6 +1267,7 @@ void ofono_modem_set_name(struct ofono_modem *modem, const char *name)
 struct ofono_modem *ofono_modem_create(const char *name, const char *type)
 {
 	struct ofono_modem *modem;
+	gboolean use_name;
 	char path[128];
 
 	DBG("name: %s, type: %s", name, type);
@@ -1277,10 +1278,16 @@ struct ofono_modem *ofono_modem_create(const char *name, const char *type)
 	if (name && strlen(name) > 64)
 		return NULL;
 
-	if (name == NULL)
-		snprintf(path, sizeof(path), "/%s%d", type, next_modem_id);
-	else
+	if (name != NULL) {
 		snprintf(path, sizeof(path), "/%s", name);
+		use_name = __ofono_dbus_valid_object_path(path);
+	} else
+		use_name = FALSE;
+
+	if (use_name)
+		snprintf(path, sizeof(path), "/%s", name);
+	else
+		snprintf(path, sizeof(path), "/%s%d", type, next_modem_id);
 
 	if (__ofono_dbus_valid_object_path(path) == FALSE)
 		return NULL;
