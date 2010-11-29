@@ -48,41 +48,32 @@
 #include <ofono/ussd.h>
 #include <ofono/voicecall.h>
 
-static const char *tty_opts[] = {
-	"Baud",
-	"Read",
-	"Local",
-	"StopBits",
-	"DataBits",
-	"Parity",
-	"XonXoff",
-	"RtsCts",
-	NULL,
-};
+#include <drivers/atmodem/vendor.h>
 
-static int atgen_probe(struct ofono_modem *modem)
+
+static int wavecom_probe(struct ofono_modem *modem)
 {
 	return 0;
 }
 
-static void atgen_remove(struct ofono_modem *modem)
+static void wavecom_remove(struct ofono_modem *modem)
 {
 }
 
-static void atgen_debug(const char *str, void *user_data)
+static void wavecom_debug(const char *str, void *user_data)
 {
-	ofono_info("%s", str);
+	const char *prefix = user_data;
+
+	ofono_info("%s%s", prefix, str);
 }
 
-static int atgen_enable(struct ofono_modem *modem)
+static int wavecom_enable(struct ofono_modem *modem)
 {
 	GAtChat *chat;
 	GIOChannel *channel;
 	GAtSyntax *syntax;
 	const char *device;
-	const char *value;
 	GHashTable *options;
-	int i;
 
 	DBG("%p", modem);
 
@@ -90,40 +81,28 @@ static int atgen_enable(struct ofono_modem *modem)
 	if (!device)
 		return -EINVAL;
 
-	options = g_hash_table_new_full(g_str_hash, g_str_equal,
-					g_free, g_free);
+	options = g_hash_table_new(g_str_hash, g_str_equal);
+
 	if (!options)
 		return -ENOMEM;
 
-	for (i = 0; tty_opts[i]; i++) {
-		value = ofono_modem_get_string(modem, tty_opts[i]);
-
-		if (value == NULL)
-			continue;
-
-		g_hash_table_insert(options, g_strdup(tty_opts[i]),
-					g_strdup(value));
-	}
+	g_hash_table_insert(options, "Baud", "115200");
+	g_hash_table_insert(options, "Parity", "none");
+	g_hash_table_insert(options, "StopBits", "1");
+	g_hash_table_insert(options, "DataBits", "8");
 
 	channel = g_at_tty_open(device, options);
 
 	g_hash_table_destroy(options);
 
-	if (!channel) {
+	if (!channel)
 		return -EIO;
-	}
 
-	value = ofono_modem_get_string(modem, "GsmSyntax");
-	if (value) {
-		if (g_str_equal(value, "V1"))
-			syntax = g_at_syntax_new_gsmv1();
-		else if (g_str_equal(value, "Permissive"))
-			syntax = g_at_syntax_new_gsm_permissive();
-		else
-			return -EINVAL;
-	} else {
-		syntax = g_at_syntax_new_gsmv1();
-	}
+	/*
+	 * Could not figure out whether it is fully compliant or not, use
+	 * permissive for now
+	 * */
+	syntax = g_at_syntax_new_gsm_permissive();
 
 	chat = g_at_chat_new(channel, syntax);
 	g_at_syntax_unref(syntax);
@@ -133,14 +112,14 @@ static int atgen_enable(struct ofono_modem *modem)
 		return -ENOMEM;
 
 	if (getenv("OFONO_AT_DEBUG"))
-		g_at_chat_set_debug(chat, atgen_debug, NULL);
+		g_at_chat_set_debug(chat, wavecom_debug, "");
 
 	ofono_modem_set_data(modem, chat);
 
 	return 0;
 }
 
-static int atgen_disable(struct ofono_modem *modem)
+static int wavecom_disable(struct ofono_modem *modem)
 {
 	GAtChat *chat = ofono_modem_get_data(modem);
 
@@ -153,18 +132,18 @@ static int atgen_disable(struct ofono_modem *modem)
 	return 0;
 }
 
-static void atgen_pre_sim(struct ofono_modem *modem)
+static void wavecom_pre_sim(struct ofono_modem *modem)
 {
 	GAtChat *chat = ofono_modem_get_data(modem);
 
 	DBG("%p", modem);
 
 	ofono_devinfo_create(modem, 0, "atmodem", chat);
-	ofono_sim_create(modem, 0, "atmodem", chat);
+	ofono_sim_create(modem, OFONO_VENDOR_WAVECOM, "atmodem", chat);
 	ofono_voicecall_create(modem, 0, "atmodem", chat);
 }
 
-static void atgen_post_sim(struct ofono_modem *modem)
+static void wavecom_post_sim(struct ofono_modem *modem)
 {
 	GAtChat *chat = ofono_modem_get_data(modem);
 	struct ofono_message_waiting *mw;
@@ -186,25 +165,25 @@ static void atgen_post_sim(struct ofono_modem *modem)
 		ofono_message_waiting_register(mw);
 }
 
-static struct ofono_modem_driver atgen_driver = {
-	.name		= "atgen",
-	.probe		= atgen_probe,
-	.remove		= atgen_remove,
-	.enable		= atgen_enable,
-	.disable	= atgen_disable,
-	.pre_sim	= atgen_pre_sim,
-	.post_sim	= atgen_post_sim,
+static struct ofono_modem_driver wavecom_driver = {
+	.name		= "wavecom",
+	.probe		= wavecom_probe,
+	.remove		= wavecom_remove,
+	.enable		= wavecom_enable,
+	.disable	= wavecom_disable,
+	.pre_sim	= wavecom_pre_sim,
+	.post_sim	= wavecom_post_sim,
 };
 
-static int atgen_init(void)
+static int wavecom_init(void)
 {
-	return ofono_modem_driver_register(&atgen_driver);
+	return ofono_modem_driver_register(&wavecom_driver);
 }
 
-static void atgen_exit(void)
+static void wavecom_exit(void)
 {
-	ofono_modem_driver_unregister(&atgen_driver);
+	ofono_modem_driver_unregister(&wavecom_driver);
 }
 
-OFONO_PLUGIN_DEFINE(atgen, "Generic AT driver", VERSION,
-		OFONO_PLUGIN_PRIORITY_DEFAULT, atgen_init, atgen_exit)
+OFONO_PLUGIN_DEFINE(wavecom, "Wavecom driver", VERSION,
+		OFONO_PLUGIN_PRIORITY_DEFAULT, wavecom_init, wavecom_exit)
