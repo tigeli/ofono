@@ -6,7 +6,6 @@
  *  Copyright (C) ST-Ericsson SA 2010.
  *  Copyright (C) 2008-2011  Intel Corporation. All rights reserved.
  *  Copyright (C) 2013 Jolla Ltd
- *  Contact: Jussi Kangas <jussi.kangas@tieto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -162,11 +161,18 @@ void handle_adn(size_t len, char *name, const unsigned char *msg,
 		char *number, struct pb_file_info *next_file,
 		struct pb_data *pbd)
 {
-	const uint8_t name_length = len - 14;
-	const uint8_t number_start = name_length;
+	uint8_t name_length;
+	uint8_t number_start;
 	uint8_t number_length = 0;
 	uint8_t extension_record = UNUSED;
 	uint8_t i, prefix;
+
+	if (len < 14)
+		return;
+
+	name_length = len - 14;
+	number_start = name_length;
+
 	name = sim_string_to_utf8(msg, name_length);
 	/* Length contains also TON&NPI */
 	number_length = msg[number_start];
@@ -256,14 +262,18 @@ void handle_adn(size_t len, char *name, const unsigned char *msg,
 	}
 }
 
-void handle_sne(size_t len,
-				const unsigned char *msg,
-				char *sne)
+void handle_sne(size_t len, const unsigned char *msg, char *sne)
 {
-	const uint8_t sne_length = len - 2;
-	uint8_t phonebook_entry_nbr = msg[len - 1];
+	uint8_t sne_length;
+	uint8_t phonebook_entry_nbr;
 
 	DBG("SNE");
+
+	if (len < 2)
+		return;
+
+	sne_length = len - 2;
+	phonebook_entry_nbr = msg[len - 1];
 
 	sne = sim_string_to_utf8(msg, sne_length);
 
@@ -299,20 +309,26 @@ void handle_sne(size_t len,
 	}
 }
 
-void handle_anr(size_t len,
-				const unsigned char *msg,
-				char *anr,
-				struct pb_file_info *next_file,
-				struct pb_data *pbd)
+void handle_anr(size_t len,const unsigned char *msg,char *anr,
+			struct pb_file_info *next_file, struct pb_data *pbd)
 {
 	uint8_t number_length = 0;
 	uint8_t extension_record = UNUSED;
 	uint8_t aas_record = UNUSED;
 	uint8_t i, prefix;
-	uint8_t phonebook_entry_nbr = msg[len - 1];
+	uint8_t phonebook_entry_nbr;
 	GSList *list_entry;
 
 	DBG("ANR");
+
+	if (!msg)
+		return;
+
+	if (len < 1)
+		return;
+
+	phonebook_entry_nbr = msg[len - 1];
+
 	if (msg[0] == UNUSED)
 		return;
 
@@ -398,11 +414,18 @@ void handle_anr(size_t len,
 	}
 }
 
-void handle_email(size_t len,
-			const unsigned char *msg,
-			char *email)
+void handle_email(size_t len, const unsigned char *msg, char *email)
 {
-	uint8_t phonebook_entry_nbr = msg[len - 1];
+	uint8_t phonebook_entry_nbr;
+
+	if (!msg)
+		return;
+
+	if (len < 1)
+		return;
+
+	phonebook_entry_nbr = msg[len - 1];
+
 	email = sim_string_to_utf8(msg, len - 2);
 
 	/* GSlist nth counts from 0, PB entries from 1 */
@@ -434,13 +457,13 @@ void handle_email(size_t len,
 	}
 }
 
-void handle_ext1(struct pb_data *pbd,
-			const unsigned char *msg,
-			char *ext_number,
-			struct pb_file_info *next_file)
+void handle_ext1(struct pb_data *pbd, const unsigned char *msg,
+			char *ext_number, struct pb_file_info *next_file)
 {
 	uint8_t number_length, i, next_extension_record;
 
+	if (!msg)
+		return;
 
 	number_length = msg[1];
 
@@ -799,9 +822,24 @@ static void pb_content_data_cb(const struct ofono_error *error,
 	if (extension_file_info)
 		file_info = decode_read_response(extension_file_info, sdata,
 						 length, pb);
-	else
+	else {
+	/*
+	 * These checks are crash hacks.
+	 * AFAIK there's a possibility that we end up here and pb_next is NULL
+	 * in case remove hase been called while phonebook reading is in
+	 * process. If you find better solution to this issue feel free to
+	 * change this.
+	 */
+		if (pb_next == NULL) {
+			ofono_error("phonebook reading failed");
+			if (cb && cbd && pbd)
+				CALLBACK_WITH_FAILURE(cb, cbd->data);
+			return;
+		}
+
 		file_info =
 			decode_read_response(pb_next->data, sdata, length, pb);
+	}
 
 	if (file_info) {
 		DBG("Reading extension file %04X, record %d, structure %d",
@@ -818,7 +856,7 @@ static void pb_content_data_cb(const struct ofono_error *error,
 		file_info = pb_next->data;
 
 		if (((file_info->structure ==
-		      OFONO_SIM_FILE_STRUCTURE_FIXED) ||
+			OFONO_SIM_FILE_STRUCTURE_FIXED) ||
 			(file_info->structure ==
 			 OFONO_SIM_FILE_STRUCTURE_CYCLIC))
 			&& (file_info->record <

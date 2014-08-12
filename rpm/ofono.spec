@@ -38,8 +38,8 @@ Development headers and libraries for oFono
 Summary:    Test Scripts for oFono
 Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
-Requires:   dbus-python
-Requires:   pygobject2
+Requires:   dbus-python3
+Requires:   python3-gobject
 Provides:   ofono-test >= 1.0
 Obsoletes:  ofono-test < 1.0
 
@@ -64,7 +64,6 @@ This package provides default configs for ofono
 autoreconf --force --install
 
 %configure --disable-static \
-    --enable-dundee \
     --enable-test \
     --with-systemdunitdir="/%{_lib}/systemd/system"
 
@@ -105,7 +104,6 @@ systemctl daemon-reload ||:
 %{_sbindir}/*
 /%{_lib}/systemd/system/network.target.wants/ofono.service
 /%{_lib}/systemd/system/ofono.service
-/%{_lib}/systemd/system/dundee.service
 %dir %{_sysconfdir}/ofono/
 %dir %{_sysconfdir}/ofono/push_forwarder.d
 # This file is part of phonesim and not needed with ofono.

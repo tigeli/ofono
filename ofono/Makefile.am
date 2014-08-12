@@ -720,6 +720,7 @@ test_scripts = test/backtrace \
 		test/set-context-property \
 		test/test-gnss \
 		test/swap-calls \
+		test/transfer-call \
 		test/release-and-answer \
 		test/release-and-swap \
 		test/hold-and-answer \
@@ -727,7 +728,8 @@ test_scripts = test/backtrace \
 		test/hangup-call \
 		test/display-icon \
 		test/set-msisdn \
-		test/test-voicecallagent
+		test/test-voicecallagent \
+		test/get-network-time
 
 if TEST
 testdir = $(pkglibdir)/test

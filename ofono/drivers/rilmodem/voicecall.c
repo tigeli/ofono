@@ -278,6 +278,8 @@ static void generic_cb(struct ril_msg *message, gpointer user_data)
 	int request = RIL_REQUEST_GET_CURRENT_CALLS;
 	int ret;
 
+	ofono_info("request:%d",message->req);
+
 	if (message->error == RIL_E_SUCCESS) {
 		decode_ril_error(&error, "OK");
 	} else {
@@ -676,6 +678,13 @@ static void ril_create_multiparty(struct ofono_voicecall *vc,
 		cb(&error, data);
 }
 
+static void ril_transfer(struct ofono_voicecall *vc,
+			ofono_voicecall_cb_t cb, void *data)
+{
+	ril_template(RIL_REQUEST_EXPLICIT_CALL_TRANSFER, vc, generic_cb, 0,
+				NULL, 0, cb, data);
+}
+
 static void private_chat_cb(struct ril_msg *message, gpointer user_data)
 {
 	struct ofono_error error;
@@ -866,6 +875,7 @@ static void ril_voicecall_remove(struct ofono_voicecall *vc)
 	if (vd->timer_id > 0)
 		g_source_remove(vd->timer_id);
 
+	g_free(vd->tone_queue);
 	g_ril_unref(vd->ril);
 	g_free(vd);
 }
@@ -880,12 +890,13 @@ static struct ofono_voicecall_driver driver = {
 	.release_specific		= ril_hangup_specific,
 	.send_tones			= ril_send_dtmf,
 	.create_multiparty		= ril_create_multiparty,
+	.transfer			= ril_transfer,
 	.private_chat			= ril_private_chat,
 	.swap_without_accept		= ril_swap_without_accept,
 	.hold_all_active		= ril_hold_all_active,
 	.release_all_held		= ril_release_all_held,
 	.set_udub			= ril_set_udub,
-	.release_all_active	= ril_release_all_active,
+	.release_all_active		= ril_release_all_active,
 };
 
 void ril_voicecall_init(void)

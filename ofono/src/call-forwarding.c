@@ -411,9 +411,12 @@ static void set_new_cond_list(struct ofono_call_forwarding *cf,
 				number = phone_number_to_string(
 							&lc->phone_number);
 
+			snprintf(attr, sizeof(attr), "%s%s",
+				bearer_class_to_string(lc->cls), cf_type_lut[i]);
+
 			ofono_dbus_signal_property_changed(conn, path,
 						OFONO_CALL_FORWARDING_INTERFACE,
-						cf_type_lut[i],
+						attr,
 						DBUS_TYPE_STRING, &number);
 		}
 
@@ -713,8 +716,12 @@ static DBusMessage *set_property_request(struct ofono_call_forwarding *cf,
 	if (ph->number[0] != '\0')
 		cf->driver->registration(cf, type, cls, ph, timeout,
 					set_property_callback, cf);
-	else
+	else {
+		if (cf->query_next == CALL_FORWARDING_TYPE_UNCONDITIONAL)
+			cf->query_end = CALL_FORWARDING_TYPE_NOT_REACHABLE;
+
 		cf->driver->erasure(cf, type, cls, set_property_callback, cf);
+	}
 
 	return NULL;
 }
