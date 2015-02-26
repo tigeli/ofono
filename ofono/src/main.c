@@ -244,7 +244,11 @@ int main(int argc, char **argv)
 
 	__ofono_manager_init();
 
-	__ofono_handsfree_audio_manager_init();
+	/*
+	 * BT HFP SCO socket creation moved to Bluez5 plugin.
+	 * Bluez4 handles the SCO socket, it will conflict with oFono.
+	 */
+	//__ofono_handsfree_audio_manager_init();
 
 	__ofono_plugin_init(option_plugin, option_noplugin);
 
@@ -255,7 +259,7 @@ int main(int argc, char **argv)
 
 	__ofono_plugin_cleanup();
 
-	__ofono_handsfree_audio_manager_cleanup();
+	//__ofono_handsfree_audio_manager_cleanup(); See comment above
 
 	__ofono_manager_cleanup();
 
